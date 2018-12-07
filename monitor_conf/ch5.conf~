@@ -1,0 +1,5 @@
+title	=	CsI
+auto_range	=	F
+xmax = 6000000
+xmin = 0
+calc_base = T

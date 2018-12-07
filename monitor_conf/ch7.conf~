@@ -1,0 +1,17 @@
+enable	   = T
+baseline   = 11565
+p0         = 0
+p1	   = 1
+p2	   = 0
+xmin	   = 500000
+xmax	   = 510000
+nbin	   = 1000
+sampling   = 2050
+auto_range = T
+xlabel	   = Integrated pulse
+title	   = LqS
+RF_channel = 1
+RF_th	   = 1000
+pulse_th   = 1200
+polar	   = F
+calc_base  = T
