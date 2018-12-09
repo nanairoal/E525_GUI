@@ -56,8 +56,6 @@ while i > 0:
     bottom_rad1 += ax_height + 0.06
     bottom_rad2 += ax_height + 0.06
 
-plt.show(block=False)
-
 
 def getNewestDir(dirlist):
     if len(dirlist) == 0:
@@ -111,18 +109,19 @@ def handler_terminate(signal, frame):
 signal.signal(signal.SIGINT, handler_terminate)
 print ('started the online monitor')
 print ('Raw data directory is ' + monitorDir) 
+newestDir = ''
+def monitor_Dir(ax):
 
-while True:
+    global newestDir
+
     newestDir2 = getNewestDir(os.listdir(monitorDir))
     
     for raw in currentProcs:
         currentProcs[raw].update_monitor()
 
     if newestDir2 is None:
-        #   return
-        #plt.pause(0.01)
-        time.sleep(1)
-        continue
+        return
+
     newestDir2 += '/'
 
     if newestDir != newestDir2:
@@ -140,7 +139,8 @@ while True:
                     monitor = Event_monitor(fig, ax_rect_list[i], raw, 'monitor_conf/'+conf[ch])
                     monitor.start()
                     currentProcs[raw] = monitor
-                    #plt.pause(0.01)
 
-    plt.pause(0.01)
-    time.sleep(0.5)
+timer = fig.canvas.new_timer(interval=500)
+timer.add_callback(monitor_Dir,None)
+timer.start()
+plt.show()

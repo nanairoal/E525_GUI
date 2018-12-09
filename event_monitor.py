@@ -11,6 +11,7 @@ import re
 import tkinter
 from multiprocessing import Process, Queue
 from queue import Empty
+from numba import jit
 
 class Realtime_histogram(Axes):
     def __init__(self, fig, rect, bin, xmin, xmax, auto_range):
@@ -87,7 +88,7 @@ class Realtime_histogram(Axes):
             if change:
                 n, bins = np.histogram(self.events, self.NBIN, range=(self.xmin, self.xmax))
                 self.__update_xlim(bins)
-                super().set_xlim((self.xmin,self.xmax))
+                self.set_xlim((self.xmin,self.xmax))
             else:
                 n, bins = np.histogram(sub_events, self.NBIN, range=(self.xmin, self.xmax))
         else:
@@ -119,7 +120,7 @@ class Event_monitor:
         self.RF_BASE = self.BASE
         self.SKIP_BASE = -1
         self.CALC_BASE = False
-        
+        self.time_lim=[0,self.SMP]
         self.rawfile = rawfile
         self.f_hist = open(rawfile,'rb')
         self.events = [np.empty(0,dtype='f8'),np.empty(0,dtype='f8')]
@@ -132,6 +133,15 @@ class Event_monitor:
         except IOError:
             print(conf + " cannot be opend.")
         
+
+        if self.RF !=  '':
+            try:
+                rf_file = re.sub('ch[0-9]', 'ch'+ self.RF, self.rawfile)
+                self.f_rf = open(rf_file, 'rb')
+            except IOError:
+                print('RF file:' + rf_file + ' cannto be opened.')
+                self.RF = ''
+
         self.format = ''
         i = 0
         while i < self.SMP:
@@ -140,7 +150,7 @@ class Event_monitor:
             
         self.__setupAxes(fig, ax_rects)
 
-    
+
     def start(self):
         self.q = Queue()
         self.p = Process(target=self.__update_events)
@@ -151,7 +161,7 @@ class Event_monitor:
         ax_radio1 = fig.add_axes(ax_rects[0],facecolor='lightgoldenrodyellow') 
         ax_radio2 = fig.add_axes(ax_rects[1],facecolor='lightgoldenrodyellow')
         self.ax_ene = Realtime_histogram(fig,ax_rects[2],self.NBIN,self.xlim[0],self.xlim[1],self.AUTORANGE)
-        self.ax_time = Realtime_histogram(fig,ax_rects[3],self.NBIN,0,self.SMP,self.AUTORANGE)
+        self.ax_time = Realtime_histogram(fig,ax_rects[3],self.NBIN,0,self.SMP,False)
         fig.add_axes(self.ax_ene)
         fig.add_axes(self.ax_time)
 
@@ -164,6 +174,8 @@ class Event_monitor:
         self.radio2.on_clicked(self.ax_time.change_scale)
         self.ax_ene.set_title(self.TITLE)
 
+        self.ax_time.set_xlim(self.time_lim)
+
 
     def __readConfig(self,line):
         if(len(line) == 0):
@@ -172,7 +184,6 @@ class Event_monitor:
         words = line.split('=')
         words[0] = words[0].strip()
         words[1] = words[1].strip()
-
         if words[0] == 'baseline':
             self.BASE = float(words[1])
         elif words[0] == 'p0':
@@ -205,6 +216,7 @@ class Event_monitor:
             self.PULSE_th = int(words[1])
         elif words[0] == 'time_max':
             self.TIME_MAX = int(words[1])
+            self.time_lim[1] = int(words[1])
         elif words[0] == 'display_extra_time':
             self.DISPLAY_EXTRA_TIME = self.__getBool(words[1])
         elif words[0] == 'polar':
@@ -215,6 +227,11 @@ class Event_monitor:
             self.SKIP_BASE = float(words[1])
         elif words[0] == 'calc_base':
             self.CALC_BASE = self.__getBool(words[1])
+        elif words[0] == 'time_max':
+            self.time_lim[1] = int(words[1])
+        elif words[0] == 'time_min':
+            self.time_lim[0] = int(words[1])
+
 
 
     def __getBool(self,param):
@@ -230,13 +247,48 @@ class Event_monitor:
         self.filesize = currentsize
         return nevent
 
-        
+
+    @jit
     def __calcBase(sefl,singleEvent):
         base_area = 125
         base = np.sum(singleEvent[0:base_area])
         return base/base_area
 
+        
+    @jit
+    def __calcTimeDiff(self, base, det_event, rf_event):
+        rise_up = -1
+        pulse_th = self.PULSE_th
+        rf_th = self.RF_th
+        polar = self.POLAR
+        rf_base = self.RF_BASE
 
+        for value in det_event:
+            rise_up += 1
+            if polar:
+                if value >= base + pulse_th:
+                    break
+            else:
+                if value <= base - pulse_th:
+                    break
+
+        i = rise_up
+        if rf_event[i] <= rf_th:
+            for value in rf_event[rise_up+1:]:
+                i += 1
+                if value > rf_th:
+                    break
+        
+        j = i
+        rf_rise_up = j
+        for value in rf_event[j:]:
+            if value <= rf_base - rf_th:
+                break
+            rf_rise_up += 1
+
+        return rf_rise_up - rise_up
+
+    @jit('f8[:,:](pyobject,i8)')
     def __readEvents(self,n):
         i = 0
         sum = 0.0
@@ -245,41 +297,54 @@ class Event_monitor:
         CALC_BASE = self.CALC_BASE
         SKIP_BASE = self.SKIP_BASE
         RF = self.RF
+        f_rf = None
         f_hist = self.f_hist
+        if RF != '':
+            f_rf = self.f_rf
         format = self.format
         sub_events = [np.empty(0),np.empty(0)]
         BASE = self.BASE
-        try:
-            while i < n:
-                c = f_hist.read(4*SMP)
-                if not c:break
-                while len(c) != 4*SMP:
-                    time.sleep(0.001)
-                    c2 = f_hist(4*SMP - len(c))
-                    c += c2
-
-                singleEvent = np.array(struct.unpack(format, c))
+        time_lim = self.time_lim
+        while i < n:
+            i += 1
+            c = f_hist.read(4*SMP)
+            if not c:break
+            while len(c) != 4*SMP:
+                time.sleep(0.001)
+                c2 = f_hist(4*SMP - len(c))
+                c += c2
                 
-                if CALC_BASE:
-                    BASE = self.__calcBase(singleEvent)
-
-                if(SKIP_BASE > 0):
-                    base_single = self.__calcBase(singleEvent)
-                    if SKIP_BASE >= 1 and base_single > BASE*SKIP_BASE:
-                        if RF != '': c=f_rf.read(4*SMP)
-                        continue
-                    if SKIP_BASE < 0  and base_single < BASE*SKIP_BASE:
-                        if RF != '': c=f_rf.read(4*SMP)
-                        continue
+            singleEvent = np.array(struct.unpack(format, c))
                 
-                pulse = np.sum(np.abs(singleEvent-BASE))
-                sub_events[0] = np.append(sub_events[0], pulse*pulse*P[2] + pulse*P[1] + P[0])
-                
-                i += 1
-        except struct.error:
-            print('chucnk size')
-            print(len(c))
+            if CALC_BASE:
+                BASE = self.__calcBase(singleEvent)
 
+            if(SKIP_BASE > 0):
+                base_single = self.__calcBase(singleEvent)
+                if SKIP_BASE >= 1 and base_single > BASE*SKIP_BASE:
+                    if RF != '': c=f_rf.read(4*SMP)
+                    continue
+                if SKIP_BASE < 0  and base_single < BASE*SKIP_BASE:
+                    if RF != '': c=f_rf.read(4*SMP)
+                    continue
+                    
+            if RF != '':
+                c = f_rf.read(4*SMP)
+                if not c:continue
+                rf_singleEvent = struct.unpack(format, c)
+                timediff = self.__calcTimeDiff(BASE, singleEvent, rf_singleEvent)
+
+                if timediff < time_lim[0] or timediff > time_lim[1]:
+                    continue
+
+                sub_events[1] = np.append(sub_events[1], timediff)
+
+            pulse = np.sum(np.abs(singleEvent-BASE))
+            sub_events[0] = np.append(sub_events[0], pulse*pulse*P[2] + pulse*P[1] + P[0])
+
+#        except struct.error:
+#            print('chucnk size')
+#            print(len(c))
         return sub_events
 
 
@@ -296,12 +361,14 @@ class Event_monitor:
             self.q.put(sub_events)
             time.sleep(1)
     
+
     def update_monitor(self):
         try:
             sub_events = self.q.get_nowait()
             self.events[0] = np.append(self.events[0], sub_events[0])
             self.events[1] = np.append(self.events[1], sub_events[1])
             self.ax_ene.update_hist(sub_events[0])
+            self.ax_time.update_hist(sub_events[1])
             self.ax_ene.set_title(self.TITLE + " Events:" + str(self.events[0].size))
             self.ax_ene.figure.canvas.draw()
         except Empty:
