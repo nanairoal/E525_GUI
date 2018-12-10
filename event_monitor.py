@@ -9,7 +9,7 @@ import time
 import os
 import re
 import tkinter
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Value
 from queue import Empty
 from numba import jit
 
@@ -124,7 +124,7 @@ class Event_monitor:
         self.rawfile = rawfile
         self.f_hist = open(rawfile,'rb')
         self.events = [np.empty(0,dtype='f8'),np.empty(0,dtype='f8')]
-        self.filesize = 0
+        self.filesize = Value('i',0)
 
         try:
             with open(conf) as conf_file:
@@ -243,8 +243,8 @@ class Event_monitor:
 
     def __monitorFile(self):
         currentsize = os.path.getsize(self.rawfile)
-        nevent = (currentsize - self.filesize)//(4*self.SMP)
-        self.filesize = currentsize
+        nevent = (currentsize - self.filesize.value)//(4*self.SMP)
+        self.filesize.value = currentsize
         return nevent
 
 
@@ -351,10 +351,8 @@ class Event_monitor:
     def __update_events(self):
         while True:
             n = self.__monitorFile()
-            n = 10000
             if n == 0:
                 time.sleep(0.001)
-                axes[0].figure.canvs.draw()
                 return
 
             sub_events = self.__readEvents(n)
