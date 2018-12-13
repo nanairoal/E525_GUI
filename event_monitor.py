@@ -161,7 +161,7 @@ class Event_monitor:
         ax_radio1 = fig.add_axes(ax_rects[0],facecolor='lightgoldenrodyellow') 
         ax_radio2 = fig.add_axes(ax_rects[1],facecolor='lightgoldenrodyellow')
         self.ax_ene = Realtime_histogram(fig,ax_rects[2],self.NBIN,self.xlim[0],self.xlim[1],self.AUTORANGE)
-        self.ax_time = Realtime_histogram(fig,ax_rects[3],self.NBIN,0,self.SMP,False)
+        self.ax_time = Realtime_histogram(fig,ax_rects[3],self.SMP,0,self.SMP,False)
         fig.add_axes(self.ax_ene)
         fig.add_axes(self.ax_time)
 
