@@ -139,7 +139,7 @@ class Event_monitor:
                 rf_file = re.sub('ch[0-9]', 'ch'+ self.RF, self.rawfile)
                 self.f_rf = open(rf_file, 'rb')
             except IOError:
-                print('RF file:' + rf_file + ' cannto be opened.')
+                print('RF file:' + rf_file + ' cannot be opened.')
                 self.RF = ''
 
         self.format = ''
@@ -310,8 +310,9 @@ class Event_monitor:
             c = f_hist.read(4*SMP)
             if not c:break
             while len(c) != 4*SMP:
-                time.sleep(0.001)
-                c2 = f_hist(4*SMP - len(c))
+                print( self.TITLE + 'is reading events... now ', len(c), '/', 4*SMP,' bytes')
+                time.sleep(0.5)
+                c2 = f_hist.read(4*SMP - len(c))
                 c += c2
                 
             singleEvent = np.array(struct.unpack(format, c))
@@ -331,6 +332,12 @@ class Event_monitor:
             if RF != '':
                 c = f_rf.read(4*SMP)
                 if not c:continue
+                while len(c) != 4*SMP:
+                    print( self.TITLE + 'is reading RF signals... now ', len(c), '/', 4*SMP,' bytes')
+                    time.sleep(0.5)
+                    c2 = f_rf.read(4*SMP - len(c))
+                    c += c2
+                
                 rf_singleEvent = struct.unpack(format, c)
                 timediff = self.__calcTimeDiff(BASE, singleEvent, rf_singleEvent)
 
@@ -352,8 +359,8 @@ class Event_monitor:
         while True:
             n = self.__monitorFile()
             if n == 0:
-                time.sleep(0.001)
-                return
+                time.sleep(0.01)
+                continue
 
             sub_events = self.__readEvents(n)
             self.q.put(sub_events)

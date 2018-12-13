@@ -14,9 +14,9 @@ rawext = '.raw'
 conf = ('ch0.conf', 'ch1.conf', 'ch2.conf', 'ch3.conf', 'ch4.conf', 'ch5.conf', 'ch6.conf', 'ch7.conf')
 
 #user variable
-enable_ch = (3,5,7)
-monitorDir = '/home/assy2/Work/E525/data/raw'
-#monitorDir = './raw'
+enable_ch = (3,5,6)
+#monitorDir = '/home/assy2/Work/E525/data/raw'
+monitorDir = './raw'
 
 if (len(enable_ch) > 3) and (len(enable_ch) <= 0):
     print('Length of the enable_ch is out of the range')
