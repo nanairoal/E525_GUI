@@ -308,7 +308,7 @@ class Event_monitor:
             c = f_hist.read(4*SMP)
             if not c:break
             while len(c) != 4*SMP:
-                print( self.TITLE + 'is reading events... now ', len(c), '/', 4*SMP,' bytes')
+                #print( self.TITLE + ' is reading events... now ', len(c), '/', 4*SMP,' bytes')
                 time.sleep(0.5)
                 c2 = f_hist.read(4*SMP - len(c))
                 c += c2
@@ -331,7 +331,7 @@ class Event_monitor:
                 c = f_rf.read(4*SMP)
                 if not c:continue
                 while len(c) != 4*SMP:
-                    print( self.TITLE + 'is reading RF signals... now ', len(c), '/', 4*SMP,' bytes')
+                    #print( self.TITLE + 'is reading RF signals... now ', len(c), '/', 4*SMP,' bytes')
                     time.sleep(0.5)
                     c2 = f_rf.read(4*SMP - len(c))
                     c += c2
@@ -356,7 +356,6 @@ class Event_monitor:
     def __update_events(self):
         while True:
             n = self.__monitorFile()
-            n = 1000
             if n == 0:
                 time.sleep(0.01)
                 continue
