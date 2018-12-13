@@ -266,27 +266,25 @@ class Event_monitor:
         for value in det_event:
             rise_up += 1
             if polar:
-                if value >= base + pulse_th:
+                if value - base >=  pulse_th:
                     break
             else:
-                if value <= base - pulse_th:
+                if base - value >=  pulse_th:
                     break
 
         i = rise_up
-        if rf_event[i] <= rf_th:
+        if rf_base - rf_event[i] > rf_th:
             for value in rf_event[rise_up+1:]:
                 i += 1
-                if value > rf_th:
-                    break
-        
-        j = i
-        rf_rise_up = j
-        for value in rf_event[j:]:
-            if value <= rf_base - rf_th:
-                break
-            rf_rise_up += 1
+                if rf_base - value <= rf_th:
+                    return i - 1
+        else:
+            for value in rf_event[rise_up-1::-1]:
+                i -= 1
+                if rf_base - value > rf_th:
+                    return i
 
-        return rf_rise_up - rise_up
+        return 0
 
     @jit('f8[:,:](pyobject,i8)')
     def __readEvents(self,n):
@@ -316,7 +314,7 @@ class Event_monitor:
                 c += c2
                 
             singleEvent = np.array(struct.unpack(format, c))
-                
+            
             if CALC_BASE:
                 BASE = self.__calcBase(singleEvent)
 
@@ -358,6 +356,7 @@ class Event_monitor:
     def __update_events(self):
         while True:
             n = self.__monitorFile()
+            n = 1000
             if n == 0:
                 time.sleep(0.01)
                 continue
