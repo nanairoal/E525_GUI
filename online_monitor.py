@@ -16,7 +16,7 @@ conf = ('ch0.conf', 'ch1.conf', 'ch2.conf', 'ch3.conf', 'ch4.conf', 'ch5.conf', 
 #user variable
 enable_ch = (3,5,7)
 #monitorDir = '/home/assy2/Work/E525/data/raw'
-monitorDir = './raw'
+monitorDir = './data'
 
 if (len(enable_ch) > 3) and (len(enable_ch) <= 0):
     print('Length of the enable_ch is out of the range')
@@ -34,14 +34,14 @@ fig = plt.figure(1,figsize=(fig_width, fig_height))
 fig.canvas.set_window_title("E525 online monitor")
 
 hist_width = 0.38
-ax_height = 0.27
+ax_height = 0.25
 radio_width = 0.1
 radio_height = 0.1
 left = 0.01
 left_ene = radio_width + left + 0.05
 left_time = left_ene + hist_width + 0.05
 ax_rect_list = []
-bottom = 0.03
+bottom = 0.06
 bottom_rad1 = bottom + 0.15
 bottom_rad2 = bottom + 0.01
 i = len(enable_ch)
@@ -128,6 +128,7 @@ def monitor_Dir(ax):
         terminateProcesses()
         currentProcs.clear()
         newestDir = newestDir2
+        fig.canvas.set_window_title("E525 online montor : " + newestDir)
         print('monitoring ' + newestDir)
 
     rawFiles = getRawFiles(monitorDir +'/'+ newestDir)
