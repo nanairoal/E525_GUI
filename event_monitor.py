@@ -125,6 +125,7 @@ class Event_monitor:
         self.f_hist = open(rawfile,'rb')
         self.events = [np.empty(0,dtype='f8'),np.empty(0,dtype='f8')]
         self.filesize = Value('i',0)
+        self.INTEGRAL_RANGE = self.SMP
 
         try:
             with open(conf) as conf_file:
@@ -132,7 +133,6 @@ class Event_monitor:
                     self.__readConfig(line)
         except IOError:
             print(conf + " cannot be opend.")
-        
 
         if self.RF !=  '':
             try:
@@ -231,7 +231,8 @@ class Event_monitor:
             self.time_lim[1] = int(words[1])
         elif words[0] == 'time_min':
             self.time_lim[0] = int(words[1])
-
+        elif words[0] == 'integral_range':
+            self.INTEGRAL_RANGE = int(words[1])
 
 
     def __getBool(self,param):
@@ -303,12 +304,13 @@ class Event_monitor:
         sub_events = [np.empty(0),np.empty(0)]
         BASE = self.BASE
         time_lim = self.time_lim
+        INTEGRAL_RANGE = self.INTEGRAL_RANGE
         while i < n:
             i += 1
             c = f_hist.read(4*SMP)
             if not c:break
             while len(c) != 4*SMP:
-                #print( self.TITLE + ' is reading events... now ', len(c), '/', 4*SMP,' bytes')
+                print( self.TITLE + ' is reading events... now ', len(c), '/', 4*SMP,' bytes')
                 time.sleep(0.5)
                 c2 = f_hist.read(4*SMP - len(c))
                 c += c2
@@ -321,17 +323,31 @@ class Event_monitor:
             if(SKIP_BASE > 0):
                 base_single = self.__calcBase(singleEvent)
                 if SKIP_BASE >= 1 and base_single > BASE*SKIP_BASE:
-                    if RF != '': c=f_rf.read(4*SMP)
+                    if RF != '':
+                        c=f_rf.read(4*SMP)
+                        while len(c) != 4*SMP:
+                            print( self.TITLE + 'is reading RF signals... now ', len(c), '/', 4*SMP,' bytes')
+                            time.sleep(0.5)
+                            c2 = f_rf.read(4*SMP - len(c))
+                            c += c2
+
                     continue
                 if SKIP_BASE < 0  and base_single < BASE*SKIP_BASE:
-                    if RF != '': c=f_rf.read(4*SMP)
+                    if RF != '': 
+                        c=f_rf.read(4*SMP)
+                        while len(c) != 4*SMP:
+                            print( self.TITLE + 'is reading RF signals... now ', len(c), '/', 4*SMP,' bytes')
+                            time.sleep(0.5)
+                            c2 = f_rf.read(4*SMP - len(c))
+                            c += c2
+
                     continue
                     
             if RF != '':
                 c = f_rf.read(4*SMP)
                 if not c:continue
                 while len(c) != 4*SMP:
-                    #print( self.TITLE + 'is reading RF signals... now ', len(c), '/', 4*SMP,' bytes')
+                    print( self.TITLE + 'is reading RF signals... now ', len(c), '/', 4*SMP,' bytes')
                     time.sleep(0.5)
                     c2 = f_rf.read(4*SMP - len(c))
                     c += c2
@@ -344,7 +360,7 @@ class Event_monitor:
 
                 sub_events[1] = np.append(sub_events[1], timediff)
 
-            pulse = np.sum(np.abs(singleEvent-BASE))
+            pulse = np.sum(np.abs(singleEvent[:INTEGRAL_RANGE]-BASE))
             sub_events[0] = np.append(sub_events[0], pulse*pulse*P[2] + pulse*P[1] + P[0])
 
 #        except struct.error:
