@@ -291,7 +291,10 @@ class Event_monitor:
     def __monitorFile(self):
         currentsize = os.path.getsize(self.rawfile)
         nevent = (currentsize - self.filesize.value)//(4*self.SMP)
-        self.filesize.value = currentsize
+        #self.filesize.value = currentsize
+        if nevent > 100000:
+            nevent = 100000
+        self.filesize.value += 4*nevent*self.SMP
         return nevent
 
 
